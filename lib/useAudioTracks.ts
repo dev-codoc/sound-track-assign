@@ -96,7 +96,7 @@ export function useAudioTracks() {
       }
       return false;
     },
-    [playTrack1, playTrack2, playCombine]
+    [playTrack1, playTrack2, playCombine],
   );
 
   return {

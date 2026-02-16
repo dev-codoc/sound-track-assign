@@ -4,7 +4,7 @@ const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const MODEL = "gemini-2.5-flash";
 
 function toGeminiContents(
-  messages: { role: string; content: string }[]
+  messages: { role: string; content: string }[],
 ): { role: "user" | "model"; parts: { text: string }[] }[] {
   return messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -16,14 +16,14 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
     console.error(
-      "[Chat API] GEMINI_API_KEY is not set. Add it to .env or .env.local in the project root and restart the dev server (npm run dev)."
+      "[Chat API] GEMINI_API_KEY is not set. Add it to .env or .env.local in the project root and restart the dev server (npm run dev).",
     );
     return NextResponse.json(
       {
         error:
           "GEMINI_API_KEY is not set. Add it to .env or .env.local in the project root (e.g. GEMINI_API_KEY=...) and restart the dev server (stop and run: npm run dev).",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
   console.log("[Chat API] Calling Gemini API...");
@@ -58,15 +58,17 @@ Otherwise, have a normal helpful conversation. Keep replies concise.`;
 
     if (!response.ok) {
       const errMsg =
-        data?.error?.message || data?.error?.details?.[0]?.message || JSON.stringify(data) || "Request failed";
+        data?.error?.message ||
+        data?.error?.details?.[0]?.message ||
+        JSON.stringify(data) ||
+        "Request failed";
       return NextResponse.json(
         { error: `Gemini API error: ${response.status} ${errMsg}` },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
-    const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
     return NextResponse.json({ content: text });
   } catch (e) {
     console.error("Chat API error:", e);

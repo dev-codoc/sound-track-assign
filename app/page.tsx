@@ -22,7 +22,10 @@ export default function ChatPage() {
   } = useAudioTracks();
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
   }, []);
 
   useEffect(() => {
@@ -62,8 +65,8 @@ export default function ChatPage() {
               errMsg.includes("billing"));
           throw new Error(
             isBillingError
-              ? "BILLING: Chat is temporarily unavailable (no API credits). You can still use the audio: try \"track 1\", \"track 2\", or \"combine\"."
-              : errMsg
+              ? 'BILLING: Chat is temporarily unavailable (no API credits). You can still use the audio: try "track 1", "track 2", or "combine".'
+              : errMsg,
           );
         }
         setMessages((prev) => [
@@ -87,7 +90,7 @@ export default function ChatPage() {
         scrollToBottom();
       }
     },
-    [messages, loading, triggerByMessage, scrollToBottom]
+    [messages, loading, triggerByMessage, scrollToBottom],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -98,7 +101,7 @@ export default function ChatPage() {
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <h1>Chat + Audio</h1>
+        <h1>Chat with Audio</h1>
         <p className={styles.subtitle}>
           Try &quot;track 1&quot;, &quot;track 2&quot;, or &quot;combine&quot;
         </p>
@@ -148,7 +151,9 @@ export default function ChatPage() {
         <div className={`chat-messages ${styles.messages}`}>
           {messages.length === 0 && (
             <div className={styles.placeholder}>
-              <p>Say &quot;track 1&quot; or &quot;track 2&quot; to play audio.</p>
+              <p>
+                Say &quot;track 1&quot; or &quot;track 2&quot; to play audio.
+              </p>
               <p>Say &quot;combine&quot; to play both at once.</p>
               <p>Or chat with the assistant about anything.</p>
             </div>
