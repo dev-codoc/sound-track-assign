@@ -1,21 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const MODEL = "gemini-2.5-flash";
+
+function toGeminiContents(
+  messages: { role: string; content: string }[]
+): { role: "user" | "model"; parts: { text: string }[] }[] {
+  return messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+}
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
     console.error(
-      "[Chat API] ANTHROPIC_API_KEY is not set. Add it to .env or .env.local in the project root and restart the dev server (npm run dev)."
+      "[Chat API] GEMINI_API_KEY is not set. Add it to .env or .env.local in the project root and restart the dev server (npm run dev)."
     );
     return NextResponse.json(
       {
         error:
-          "ANTHROPIC_API_KEY is not set. Add it to .env or .env.local in the project root (e.g. ANTHROPIC_API_KEY=sk-ant-...) and restart the dev server (stop and run: npm run dev).",
+          "GEMINI_API_KEY is not set. Add it to .env or .env.local in the project root (e.g. GEMINI_API_KEY=...) and restart the dev server (stop and run: npm run dev).",
       },
       { status: 500 }
     );
   }
-  console.log("[Chat API] Calling Anthropic API...");
+  console.log("[Chat API] Calling Gemini API...");
 
   try {
     const { messages } = await req.json();
@@ -23,22 +34,39 @@ export async function POST(req: NextRequest) {
 When the user says "track 1" or "track 2" or "combine", the app will handle playing those audio tracks; you can briefly acknowledge and encourage them to try it.
 Otherwise, have a normal helpful conversation. Keep replies concise.`;
 
-    const anthropic = new Anthropic({ apiKey });
+    const contents = toGeminiContents(messages);
+    const url = `${GEMINI_API_BASE}/models/${MODEL}:generateContent`;
 
-    const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: {
+          parts: [{ text: systemPrompt }],
+        },
+        generationConfig: {
+          maxOutputTokens: 1024,
+        },
+      }),
     });
 
-    const textBlock = response.content?.find((block) => block.type === "text");
-    const text =
-      textBlock && "text" in textBlock ? (textBlock.text as string) : "";
+    const data = await response.json();
 
+    if (!response.ok) {
+      const errMsg =
+        data?.error?.message || data?.error?.details?.[0]?.message || JSON.stringify(data) || "Request failed";
+      return NextResponse.json(
+        { error: `Gemini API error: ${response.status} ${errMsg}` },
+        { status: response.status }
+      );
+    }
+
+    const text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
     return NextResponse.json({ content: text });
   } catch (e) {
     console.error("Chat API error:", e);

@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Chat + Audio | Howler.js",
-  description: "Chat with Claude and trigger audio tracks",
+  description: "Chat with Gemini and trigger audio tracks",
 };
 
 export default function RootLayout({

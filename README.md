@@ -1,15 +1,15 @@
-# Chat + Audio (Howler.js)
+# Chat Bot with audio (Howler.js)
 
-A chat-based app powered by **Claude** with **Howler.js** audio triggers.
+A chat-based app powered by **Google Gemini** with **Howler.js** audio triggers.
 
 ## Features
 
-- **Chat**: Talk to a bot powered by Anthropic’s Claude API.
+- **Chat**: Talk to a bot powered by Google’s Gemini API.
 - **Audio triggers** (type in chat or use the buttons):
   - **"track 1"** → plays audio track 1
   - **"track 2"** → plays audio track 2
   - **"combine"** → plays both tracks at the same time
-- **Tech**: Next.js 14, Howler.js, Claude API.
+- **Tech**: Next.js 14, Howler.js, Gemini API.
 
 ## Setup
 
@@ -19,15 +19,15 @@ A chat-based app powered by **Claude** with **Howler.js** audio triggers.
 npm install
 ```
 
-### 2. Claude API key
+### 2. Gemini API key
 
-Create `.env.local` in the project root:
+Create `.env` or `.env.local` in the project root:
 
 ```env
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-Get a key from [Anthropic Console](https://console.anthropic.com/).
+Get a key from [Google AI Studio](https://aistudio.google.com/apikey).
 
 ### 3. Audio tracks
 
@@ -55,6 +55,6 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Project structure
 
 - `app/page.tsx` – Chat UI and audio trigger handling
-- `app/api/chat/route.ts` – Claude API proxy
+- `app/api/chat/route.ts` – Gemini API proxy
 - `lib/useAudioTracks.ts` – Howler.js hook for track 1, track 2, and combined playback
 - `public/tracks/` – Add `track1.mp3` and `track2.mp3` here

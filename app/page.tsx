@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAudioTracks } from "@/lib/useAudioTracks";
 import styles from "./page.module.css";
 
@@ -22,8 +22,12 @@ export default function ChatPage() {
   } = useAudioTracks();
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading, scrollToBottom]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -75,7 +79,7 @@ export default function ChatPage() {
             role: "assistant",
             content: message.startsWith("BILLING:")
               ? message.slice(8).trim()
-              : `Error: ${message}. If the key is missing: add ANTHROPIC_API_KEY to .env in the project root and restart the dev server (npm run dev).`,
+              : `Error: ${message}. If the key is missing: add GEMINI_API_KEY to .env in the project root and restart the dev server (npm run dev).`,
           },
         ]);
       } finally {
