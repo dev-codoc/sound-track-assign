@@ -122,7 +122,7 @@ export default function ChatPage() {
         scrollToBottom();
       }
     },
-      [messages, loading, scrollToBottom],
+      [messages, loading, applyAudioCommand, scrollToBottom],
   );
 
   const handleSubmit = (e: React.FormEvent) => {

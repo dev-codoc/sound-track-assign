@@ -17,7 +17,7 @@ export function useAudioTracks() {
   const initialized = useRef(false);
 
   const initHowls = useCallback(() => {
-    if (typeof window === "undefined" || initialized.current) return;
+    if (initialized.current) return;
     initialized.current = true;
     try {
       howl1.current = new Howl({
@@ -46,16 +46,19 @@ export function useAudioTracks() {
     };
   }, [initHowls]);
 
-  const stopAll = useCallback(() => {
+  const stopBoth = () => {
     howl1.current?.stop();
     howl2.current?.stop();
+  };
+
+  const stopAll = useCallback(() => {
+    stopBoth();
     setPlaybackState("idle");
   }, []);
 
   const playTrack1 = useCallback(() => {
     initHowls();
-    howl2.current?.stop();
-    howl1.current?.stop();
+    stopBoth();
     howl1.current?.play();
     setPlaybackState("track1");
     setError(null);
@@ -63,8 +66,7 @@ export function useAudioTracks() {
 
   const playTrack2 = useCallback(() => {
     initHowls();
-    howl1.current?.stop();
-    howl2.current?.stop();
+    stopBoth();
     howl2.current?.play();
     setPlaybackState("track2");
     setError(null);
@@ -72,14 +74,12 @@ export function useAudioTracks() {
 
   const playCombine = useCallback(() => {
     initHowls();
-    howl1.current?.stop();
-    howl2.current?.stop();
+    stopBoth();
     howl1.current?.play();
     howl2.current?.play();
     setPlaybackState("combine");
     setError(null);
   }, [initHowls]);
-
 
   const applyAudioCommand = useCallback(
     (command: AudioCommand) => {

@@ -216,18 +216,6 @@ export async function POST(req: NextRequest) {
     }
 
     const text = extractTextFromCandidateParts(candidateParts);
-    const parsed = parseJsonFromString(text);
-    if (parsed && typeof parsed === "object") {
-      const reply = String(parsed.reply ?? text ?? "").trim();
-      const rawAction = parsed.action ?? null;
-      const action =
-        rawAction === "track1" ||
-        rawAction === "track2" ||
-        rawAction === "combine"
-          ? rawAction
-          : null;
-      return NextResponse.json({ reply, action });
-    }
     return NextResponse.json({ reply: text, action: null });
   } catch (e) {
     console.error("Chat API error:", e);
@@ -238,35 +226,4 @@ export async function POST(req: NextRequest) {
         : 500;
     return NextResponse.json({ error: message }, { status });
   }
-}
-
-function parseJsonFromString(s: unknown): any | null {
-  if (!s || typeof s !== "string") return null;
-  // Try direct parse
-  try {
-    return JSON.parse(s);
-  } catch {
-    // continue
-  }
-  // Try to extract a JSON code block
-  const codeBlock = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(s as string);
-  if (codeBlock?.[1]) {
-    try {
-      return JSON.parse(codeBlock[1]);
-    } catch {
-      // fallthrough
-    }
-  }
-  // Try to find the first { ... } substring
-  const first = (s as string).indexOf("{");
-  const last = (s as string).lastIndexOf("}");
-  if (first !== -1 && last !== -1 && last > first) {
-    const sub = (s as string).slice(first, last + 1);
-    try {
-      return JSON.parse(sub);
-    } catch {
-      return null;
-    }
-  }
-  return null;
 }
