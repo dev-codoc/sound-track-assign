@@ -6,6 +6,12 @@ import styles from "./page.module.css";
 
 type Message = { role: "user" | "assistant"; content: string };
 
+type ChatResponse = {
+  reply?: string;
+  action?: "track1" | "track2" | "combine" | null;
+  error?: string;
+};
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -14,23 +20,30 @@ export default function ChatPage() {
   const {
     playbackState,
     error: audioError,
-    playTrack1,
-    playTrack2,
-    playCombine,
     stopAll,
-    triggerByMessage,
+    applyAudioCommand,
   } = useAudioTracks();
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = () => {
+  setTimeout(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "end",
     });
-  }, []);
+  }, 50);
+};
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, loading, scrollToBottom]);
+  const el = messagesEndRef.current;
+  if (!el) return;
+
+  requestAnimationFrame(() => {
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  });
+}, [messages]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -40,8 +53,6 @@ export default function ChatPage() {
       setInput("");
       setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
       scrollToBottom();
-
-      triggerByMessage(trimmed);
 
       setLoading(true);
       try {
@@ -55,7 +66,7 @@ export default function ChatPage() {
             ],
           }),
         });
-        const data = await response.json();
+        const data: ChatResponse = await response.json();
         if (!response.ok) {
           const errMsg = data.error || "Request failed";
           const isBillingError =
@@ -69,9 +80,30 @@ export default function ChatPage() {
               : errMsg,
           );
         }
+        // Backend action execution 
+        if (data.action) {
+          try {
+            const audioRes = await fetch("/api/audio", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ command: data.action }),
+            });
+            if (!audioRes.ok) {
+              console.error("Audio API failed", audioRes.status);
+            } else {
+              const audioData = await audioRes.json();
+              if (audioData?.audio?.command) {
+                applyAudioCommand(audioData.audio.command);
+              }
+            }
+          } catch (err) {
+            console.error("Audio API error", err);
+          }
+        }
+
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: data.content || "" },
+          { role: "assistant", content: data.reply || "" },
         ]);
       } catch (e) {
         const message =
@@ -90,7 +122,7 @@ export default function ChatPage() {
         scrollToBottom();
       }
     },
-    [messages, loading, triggerByMessage, scrollToBottom],
+      [messages, loading, scrollToBottom],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -108,7 +140,7 @@ export default function ChatPage() {
         <div className={styles.audioControls}>
           <button
             type="button"
-            onClick={playTrack1}
+            onClick={() => sendMessage("track 1")}
             className={playbackState === "track1" ? styles.active : undefined}
             aria-pressed={playbackState === "track1"}
           >
@@ -116,7 +148,7 @@ export default function ChatPage() {
           </button>
           <button
             type="button"
-            onClick={playTrack2}
+            onClick={() => sendMessage("track 2")}
             className={playbackState === "track2" ? styles.active : undefined}
             aria-pressed={playbackState === "track2"}
           >
@@ -124,7 +156,7 @@ export default function ChatPage() {
           </button>
           <button
             type="button"
-            onClick={playCombine}
+            onClick={() => sendMessage("combine")}
             className={playbackState === "combine" ? styles.active : undefined}
             aria-pressed={playbackState === "combine"}
           >

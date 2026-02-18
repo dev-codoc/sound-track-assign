@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Howl } from "howler";
+import type { AudioCommand } from "@/lib/audioInstructions";
 
 const TRACK_1_SRC = "/tracks/track1.mp3";
 const TRACK_2_SRC = "/tracks/track2.mp3";
@@ -79,33 +80,31 @@ export function useAudioTracks() {
     setError(null);
   }, [initHowls]);
 
-  const triggerByMessage = useCallback(
-    (message: string) => {
-      const lower = message.trim().toLowerCase();
-      if (lower === "track 1") {
-        playTrack1();
-        return true;
+
+  const applyAudioCommand = useCallback(
+    (command: AudioCommand) => {
+      switch (command) {
+        case "track1":
+          playTrack1();
+          return;
+        case "track2":
+          playTrack2();
+          return;
+        case "combine":
+          playCombine();
+          return;
+        case "stop":
+          stopAll();
+          return;
       }
-      if (lower === "track 2") {
-        playTrack2();
-        return true;
-      }
-      if (lower === "combine") {
-        playCombine();
-        return true;
-      }
-      return false;
     },
-    [playTrack1, playTrack2, playCombine],
+    [playTrack1, playTrack2, playCombine, stopAll],
   );
 
   return {
     playbackState,
     error,
-    playTrack1,
-    playTrack2,
-    playCombine,
     stopAll,
-    triggerByMessage,
+    applyAudioCommand,
   };
 }

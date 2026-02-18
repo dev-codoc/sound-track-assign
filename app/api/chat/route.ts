@@ -1,7 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  instructionFromToolCall,
+  type AudioInstruction,
+} from "@/lib/audioInstructions";
+import { chatSystemPrompt } from "@/lib/prompts/chatSystemPrompt";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const MODEL = "gemini-2.5-flash";
+
+type GeminiContent = { role: "user" | "model"; parts: any[] };
+
+const tools = [
+  {
+    function_declarations: [
+      {
+        name: "play_track",
+        description:
+          "Play a single track in the chat app's audio player. Use when the user asks to play track 1 or track 2.",
+        parameters: {
+          type: "object",
+          properties: {
+            track: {
+              type: "string",
+              enum: ["1", "2"],
+              description: "Which track to play.",
+            },
+          },
+          required: ["track"],
+        },
+      },
+      {
+        name: "combine_tracks",
+        description:
+          "Play both tracks together at the same time. Use when the user asks to combine the tracks.",
+        parameters: { type: "object", properties: {} },
+      },
+      {
+        name: "stop_audio",
+        description: "Stop any currently playing audio.",
+        parameters: { type: "object", properties: {} },
+      },
+    ],
+  },
+];
+
+function extractTextFromCandidateParts(parts: any[]): string {
+  return parts
+    .filter((p) => typeof p?.text === "string")
+    .map((p) => String(p.text))
+    .join("")
+    .trim();
+}
+
+function getFunctionCall(
+  parts: any[],
+): { name: string; args: Record<string, any> } | null {
+  const fcPart = parts.find((p) => p?.functionCall);
+  if (!fcPart?.functionCall?.name) return null;
+  return {
+    name: String(fcPart.functionCall.name),
+    args: (fcPart.functionCall.args ?? {}) as Record<string, any>,
+  };
+}
+
+function executeAudioToolCall(fc: {
+  name: string;
+  args: Record<string, any>;
+}): { toolName: string; audio: AudioInstruction } | null {
+  const audio = instructionFromToolCall(fc);
+  if (!audio) return null;
+  return { toolName: fc.name, audio };
+}
 
 function toGeminiContents(
   messages: { role: string; content: string }[],
@@ -30,11 +99,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const { messages } = await req.json();
-    const systemPrompt = `You are a friendly assistant in a chat app that also has audio features. 
-When the user says "track 1" or "track 2" or "combine", the app will handle playing those audio tracks; you can briefly acknowledge and encourage them to try it.
-Otherwise, have a normal helpful conversation. Keep replies concise.`;
+    const systemPrompt = chatSystemPrompt;
 
-    const contents = toGeminiContents(messages);
+    const contents = toGeminiContents(messages) as GeminiContent[];
     const url = `${GEMINI_API_BASE}/models/${MODEL}:generateContent`;
 
     const response = await fetch(url, {
@@ -45,6 +112,12 @@ Otherwise, have a normal helpful conversation. Keep replies concise.`;
       },
       body: JSON.stringify({
         contents,
+        tools,
+        toolConfig: {
+          functionCallingConfig: {
+            mode: "AUTO",
+          },
+        },
         systemInstruction: {
           parts: [{ text: systemPrompt }],
         },
@@ -68,8 +141,94 @@ Otherwise, have a normal helpful conversation. Keep replies concise.`;
       );
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-    return NextResponse.json({ content: text });
+    const candidateParts = data?.candidates?.[0]?.content?.parts ?? [];
+    const functionCall = getFunctionCall(candidateParts);
+
+    // Gemini final reply.
+    if (functionCall) {
+      const executed = executeAudioToolCall(functionCall);
+
+      if (executed) {
+        let action: "track1" | "track2" | "combine" | null = null;
+
+        if (executed.audio.command === "track1") action = "track1";
+        if (executed.audio.command === "track2") action = "track2";
+        if (executed.audio.command === "combine") action = "combine";
+
+        // SECOND CALL to Gemini to generate final natural response
+        const followUpContents = [
+          ...contents,
+          {
+            role: "model",
+            parts: [
+              {
+                functionCall: {
+                  name: functionCall.name,
+                  args: functionCall.args,
+                },
+              },
+            ],
+          },
+          {
+            role: "user",
+            parts: [
+              {
+                functionResponse: {
+                  name: functionCall.name,
+                  response: executed.audio,
+                },
+              },
+            ],
+          },
+        ];
+
+        const response2 = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: JSON.stringify({
+            contents: followUpContents,
+            tools,
+            toolConfig: {
+              functionCallingConfig: {
+                mode: "AUTO",
+              },
+            },
+            systemInstruction: {
+              parts: [{ text: systemPrompt }],
+            },
+          }),
+        });
+
+        const data2 = await response2.json();
+
+        const finalParts = data2?.candidates?.[0]?.content?.parts ?? [];
+
+        const finalText = extractTextFromCandidateParts(finalParts);
+
+        return NextResponse.json({
+          reply: finalText || "Done.",
+          action,
+        });
+      }
+    }
+
+    const text = extractTextFromCandidateParts(candidateParts);
+    const parsed = parseJsonFromString(text);
+    if (parsed && typeof parsed === "object") {
+      const reply = String(parsed.reply ?? text ?? "").trim();
+      const rawAction = parsed.action ?? null;
+      const action =
+        rawAction === "track1" ||
+        rawAction === "track2" ||
+        rawAction === "combine"
+          ? rawAction
+          : null;
+      return NextResponse.json({ reply, action });
+    }
+    return NextResponse.json({ reply: text, action: null });
   } catch (e) {
     console.error("Chat API error:", e);
     const message = e instanceof Error ? e.message : "Chat request failed";
@@ -79,4 +238,35 @@ Otherwise, have a normal helpful conversation. Keep replies concise.`;
         : 500;
     return NextResponse.json({ error: message }, { status });
   }
+}
+
+function parseJsonFromString(s: unknown): any | null {
+  if (!s || typeof s !== "string") return null;
+  // Try direct parse
+  try {
+    return JSON.parse(s);
+  } catch {
+    // continue
+  }
+  // Try to extract a JSON code block
+  const codeBlock = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(s as string);
+  if (codeBlock?.[1]) {
+    try {
+      return JSON.parse(codeBlock[1]);
+    } catch {
+      // fallthrough
+    }
+  }
+  // Try to find the first { ... } substring
+  const first = (s as string).indexOf("{");
+  const last = (s as string).lastIndexOf("}");
+  if (first !== -1 && last !== -1 && last > first) {
+    const sub = (s as string).slice(first, last + 1);
+    try {
+      return JSON.parse(sub);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }

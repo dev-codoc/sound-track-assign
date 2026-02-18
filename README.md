@@ -1,15 +1,14 @@
 # Chat Bot with audio (Howler.js)
 
-A chat-based app powered by **Google Gemini** with **Howler.js** audio triggers.
+A chat-based app powered by **Google Gemini** with **Howler.js** audio playback. Audio actions are **decided by Gemini via tool-calling on the backend**, and the frontend only executes the returned audio instruction.
 
 ## Features
 
 - **Chat**: Talk to a bot powered by Google’s Gemini API.
-- **Audio triggers** (type in chat or use the buttons):
-  - **"track 1"** → plays audio track 1
-  - **"track 2"** → plays audio track 2
-  - **"combine"** → plays both tracks at the same time
-- **Tech**: Next.js 14, Howler.js, Gemini API.
+- **Audio control (model-driven)**:
+  - Type **\"track 1\"**, **\"track 2\"**, **\"combine\"**, or **\"stop\"** (or use buttons).
+  - Gemini chooses a tool call, the backend returns an **audio instruction**, and the browser plays it with Howler.js.
+- **Tech**: Next.js 14 (App Router), Howler.js, Gemini API (REST + tool calling).
 
 ## Setup
 
@@ -48,13 +47,19 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Usage
 
-- Type **track 1**, **track 2**, or **combine** in the chat to trigger playback (exact phrases, case-insensitive).
-- Use the **Track 1**, **Track 2**, **Combine**, and **Stop** buttons above the chat for direct control.
-- The “Now playing” line shows the current audio state; the bot will still reply to your messages.
+- Type **track 1**, **track 2**, **combine**, or **stop** in the chat (or click the buttons).
+- **Important**: the frontend does **not** decide which track to play. It always calls `POST /api/chat`; the backend (Gemini tool-calling) returns `audio.command`, and the browser executes it.
+- The “Now playing” line shows the current audio state.
 
 ## Project structure
 
-- `app/page.tsx` – Chat UI and audio trigger handling
-- `app/api/chat/route.ts` – Gemini API proxy
-- `lib/useAudioTracks.ts` – Howler.js hook for track 1, track 2, and combined playback
+- `app/page.tsx` – Chat UI; sends messages to `/api/chat`; plays audio only when backend returns `audio.command`
+- `app/api/chat/route.ts` – Calls Gemini with tool declarations; may do 2-step tool calling (functionCall → functionResponse → final text)
+- `app/api/audio/route.ts` – Backend audio instruction API (`{command}` → `{audio}`), used as the tool target conceptually
+- `lib/audioInstructions.ts` – Canonical mapping between commands/tool calls and `{ command, urls }`
+- `lib/useAudioTracks.ts` – Howler.js hook; executes audio commands (`track1`, `track2`, `combine`, `stop`)
 - `public/tracks/` – Add `track1.mp3` and `track2.mp3` here
+
+## Wireflow doc
+
+See `PROJECT_WIREFLOW.md` for the complete end-to-end request/response flow (browser → `/api/chat` → Gemini tool call → backend → browser).
