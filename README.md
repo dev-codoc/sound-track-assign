@@ -60,6 +60,3 @@ Open [http://localhost:3000](http://localhost:3000).
 - `lib/useAudioTracks.ts` – Howler.js hook; executes audio commands (`track1`, `track2`, `combine`, `stop`)
 - `public/tracks/` – Add `track1.mp3` and `track2.mp3` here
 
-## Wireflow doc
-
-See `PROJECT_WIREFLOW.md` for the complete end-to-end request/response flow (browser → `/api/chat` → Gemini tool call → backend → browser).
